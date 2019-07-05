@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 # routine to get values from a shot and plot them
 import MDSplus as mds
 import numpy as np
@@ -185,12 +187,16 @@ expdata2[4] = {'nq':1, 'x':[te_t], \
 print('Got te')
 
 #plot 3
-#nbi power
-pnbi_s = t1.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
-pnbi = pnbi_s.data()[36,:]
-pnbi_t = pnbi_s.getDimensionAt(0).data()
-#ec power
 try:
+    #nbi power
+    pnbi_s = t1.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
+    pnbi = pnbi_s.data()[36,:]
+    pnbi_t = pnbi_s.getDimensionAt(0).data()
+except:
+    pnbi=np.zeros(5)
+    pnbi_t=np.zeros(5)    
+try:
+    #ec power
     pec_s = t1.getNode(r'\results::toray.input:p_gyro')
     pec = pec_s.data()[-1,:]*1e-3
     pec_t = pec_s.getDimensionAt(0).data()
@@ -203,10 +209,15 @@ expdata1[5] = {'nq':2, 'x':[pnbi_t, pec_t], \
               'lab':['NBI', 'EC']}
 
 #plot 3
-#nbi power
-pnbi_s = t2.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
-pnbi = pnbi_s.data()[36,:]
-pnbi_t = pnbi_s.getDimensionAt(0).data()
+
+try:
+    #nbi power
+    pnbi_s = t2.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
+    pnbi = pnbi_s.data()[36,:]
+    pnbi_t = pnbi_s.getDimensionAt(0).data()
+except:
+    pnbi=np.zeros(5)
+    pnbi_t=np.zeros(5)    
 #ec power
 try:
     pec_s = t2.getNode(r'\results::toray.input:p_gyro')
@@ -301,14 +312,14 @@ t = _z.getDimensionAt(0)
 ind = np.argmin(t-1.25<0)
 z02 = _z2[ind]; R02=_R2[ind]
 
-wall = np.loadtxt('/home/vallar/TCV/TCV_FW_coord.dat')
-
-
+#wall = np.loadtxt('/home/vallar/TCV_wall/TCV_FW_coord.dat')
+rw=mds.Data.execute(r"static('r_v:in')").data()
+zw=mds.Data.execute(r"static('z_v:in')").data()
 f=plt.figure(figsize=(3,6)); ax=f.add_subplot(111)
 ax.plot(R1,z1, 'r', label=str(shot1)); ax.plot(R2,z2,'k', label=str(shot2))
 ax.scatter(R01, z01, color='r', ); ax.scatter(R02, z02, color='k')
-ax.plot(wall[:,0], wall[:,1], 'k', lw=2.3)
-ax.plot(np.linspace(min(wall[:,0]), max(wall[:,0]), len(wall[:,0])), np.zeros(len(wall[:,0])), 'k--', lw=2.3);
+ax.plot(rw, zw, 'k', lw=2.3)
+ax.plot(np.linspace(min(rw), max(rw), len(rw)), np.zeros(len(rw)), 'k--', lw=2.3);
 ax.set_xlabel(r'R [m]'); ax.set_ylabel(r'z [m]')
 ax.axis('equal')
 ax.legend(loc='best')

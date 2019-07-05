@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 # routine to get values from a shot and plot them
 import MDSplus as mds
 import numpy as np
@@ -18,16 +20,6 @@ ne_rho = ne_s.getDimensionAt(1).data()
 ne_err_s = t.getNode(r'\tcv_shot::top.results.thomson.profiles.auto:ne:error_bar')
 ne_err = ne_err_s.data()
 
-#ne_raw
-ne_raw_s = t.getNode(r'\tcv_shot::top.results.thomson:ne')
-polflux_th=t.getNode(r'\tcv_shot::top.results.thomson:psiscatvol')
-polflux_time = polflux_th.getDimensionAt(0).data()
-polflux_th = polflux_th.data() #rho, time
-polflux_n_th = np.copy(polflux_th)
-#finding rhopol
-for i, el in enumerate(polflux_time):
-    polflux_n_th[:, i] = (polflux_n_th-min(polflux_n_th))/(max(polflux_n_th)-min(polflux_n_th))
-
 expdata[1] = {'x':ne_rho, \
               'y':ne, \
               't': ne_t, \
@@ -42,7 +34,7 @@ te_s = t.getNode(r'\tcv_shot::top.results.thomson.profiles.auto:te')
 te = te_s.data()
 te_t = te_s.getDimensionAt(0).data()
 te_rho = te_s.getDimensionAt(1).data()
-te_err_s = t.getNode('\tcv_shot::top.results.thomson.profiles.auto:te:error_bar')
+te_err_s = t.getNode(r'\tcv_shot::top.results.thomson.profiles.auto:te:error_bar')
 te_err = te_err_s.data()
 
 expdata[1] = {'x': te_rho, \

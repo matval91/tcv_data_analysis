@@ -1,11 +1,18 @@
+#!/usr/bin/env python2.7
+
 # routine to get values from a shot and plot them
 import MDSplus as mds
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import scipy.interpolate as interp
+from matplotlib.gridspec import GridSpec
+from utils.plot_utils import define_colors
+
+colours, colours_old, styles, my_cmap, dpi = define_colors()
 
 shot=input('Shot number? ')
+time_req=input('Desired timeslice? ')
 t=mds.Tree('tcv_shot', shot)
 expdata={}
 col=['k', 'r','b']
@@ -15,7 +22,7 @@ iptr_s = t.getNode(r'\magnetics::iplasma:trapeze')
 iptr = iptr_s.data()
 iptr_t = iptr_s.getDimensionAt(0).data()
 time = iptr_t
-ind = np.argmin(time-0.5<0.)
+ind = np.argmin(time-time_req<0.)
 ipliu_s = t.getNode(r'\results::i_p')
 ipliu = ipliu_s.data()
 ipliu_t = ipliu_s.getDimensionAt(0).data()
@@ -49,10 +56,15 @@ expdata[1] = {'nq':2, 'x':[vl_t, btor_t], \
 print('Got vloop & Btor')
 
 #plot 3
-#nbi power
-pnbi_s = t.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
-pnbi = pnbi_s.data()[36,:]
-pnbi_t = pnbi_s.getDimensionAt(0).data()
+try:
+    #nbi power
+    pnbi_s = t.getNode(r'\ATLAS::NBH.DATA.MAIN_ADC:DATA')
+    pnbi = pnbi_s.data()[36,:]
+    pnbi_t = pnbi_s.getDimensionAt(0).data()
+except:
+    print('Most likely no beam is present')
+    pnbi=np.zeros(10)
+    pnbi_t=np.zeros(10)    
 #ec power
 try:
     pec_s = t.getNode(r'\results::toray.input:p_gyro')
@@ -100,10 +112,10 @@ rmin = rmin_s.data()[:,-1]
 print('Got stuff for betan')
 
 a=(rmax-rmin)/2.
-btor = btor_par(betat_t)
+btor = np.abs(btor_par(betat_t))
 a=a[~np.isnan(betat)]
 btor=btor[~np.isnan(betat)]
-ip_bt = ipliu[~np.isnan(betat)]
+ip_bt = np.abs(ipliu[~np.isnan(betat)])
 betat_t = betat_t[~np.isnan(betat)]
 betat = betat[~np.isnan(betat)]
 
@@ -138,21 +150,45 @@ print('Got te')
 #plot 8
 #rz axis
 zax_s = t.getNode(r'\results::z_axis')
-zax = zax_s.data()
+zax = zax_s.data()*100.
 zax_t = zax_s.getDimensionAt(0)
 rax_s = t.getNode(r'\results::r_axis')
-rax = rax_s.data()-0.88
+rax = (rax_s.data()-0.88)*100.
 rax_t = rax_s.getDimensionAt(0)
 expdata[7] = {'nq':2, 'x':[rax_t, zax_t], \
-              'y':[rax, zax], 'ylab':r'Position (m)',\
+              'y':[rax, zax], 'ylab':r'Position (cm)',\
               'lab':[r'r$_{axis}$-0.88', r'z$_{axis}$']}
 print('Got RZ axis')
 
 #plot 9
-#psi
-psi=t.getNode(r'\results::psi')
+#mhd
+aaLFSz23_sect3=t.getNode(r'\atlas::DT196_MHD_001:channel_067')
+aaLFSz23_sect11=t.getNode(r'\atlas::DT196_MHD_001:channel_075')
+n1 = aaLFSz23_sect3
+n1_sig = aaLFSz23_sect3.data() - aaLFSz23_sect11.data()
+n2 = aaLFSz23_sect3
+n2_sig = aaLFSz23_sect3.data() + aaLFSz23_sect11.data()
+t_mhd=aaLFSz23_sect3.getDimensionAt(0).data()
+mhd=dict()
+mhd['n1']={};mhd['n2']={}
+mhd['t']={}; mhd['tot']={}
+mhd['n1']['sig'] = np.ravel(n1_sig)
+mhd['n2']['sig'] = np.ravel(n2_sig)
+mhd['t'] = np.ravel(t_mhd)
+nfft=512
+#[B,F,T]=specgram(gdat_data.data(:,i),nfft,1/mean(diff(gdat_data.t)),hanning(nfft),nfft/2);
+for i in ['n1', 'n2']:
+    mhd[i]['Pxx'], mhd[i]['freqs_1'], mhd[i]['bins'], mhd[i]['im'] = plt.specgram(mhd[i]['sig'], NFFT=nfft, Fs=1./np.mean(np.diff(t_mhd)))
+    #plt.figure(); plt.specgram(mhd[i]['sig'], NFFT=nfft, Fs=1./np.mean(np.diff(t_mhd)))
+mhd['tot']['Pxx'], mhd['tot']['freqs_1'], mhd['tot']['bins'], mhd['tot']['im'] = plt.specgram((mhd['n1']['sig']+mhd['n2']['sig'])/2., NFFT=nfft, Fs=1./np.mean(np.diff(t_mhd)))
+expdata[9] = {}
+expdata[9]['xbins'] = mhd['tot']['bins']
+expdata[9]['ybins'] = mhd['tot']['freqs_1']
+expdata[9]['values'] = mhd['tot']['Pxx']
 
-
+#plt.figure(); plt.specgram((mhd['n1']['sig']+mhd['n2']['sig'])/2., NFFT=nfft, Fs=1./np.mean(np.diff(t_mhd)))
+plt.close('all')
+print('Got MHD')
 #plot 10
 #qpsi
 qpsi_s = t.getNode(r'\results::q_psi')
@@ -176,45 +212,89 @@ print('Got q')
 # rt_s = t.getNode(r'\top::crpprt03:ethercat1:dac:dac_001')
 # rt = rt_s.data()*10./32768.
 # rt_t = rt_s.getDimensionAt(0).data()
+_R_s = t.getNode(r'\results::r_contour')
+_Z_s = t.getNode(r'\results::z_contour')
+_R = _R_s.data()
+_z = _Z_s.data()
+timeeq = _R_s.getDimensionAt(1).data()
+ind = np.argmin(timeeq-time_req<0)
+R = _R[ind,:]; z=_z[ind,:]
+_R = t.getNode(r'\results::r_axis')
+_z = t.getNode(r'\results::z_axis')
+timeeq = _z.getDimensionAt(0)
+ind = np.argmin(timeeq-time_req<0)
+_z = _z.data(); _R=_R.data()
+z0 = _z[ind]; R0=_R[ind]
+rw=mds.Data.execute(r"static('r_v:in')").data()
+zw=mds.Data.execute(r"static('z_v:in')").data()
+
+if True:
+
+    # plot
+    plt.rc('xtick', labelsize=10)
+    plt.rc('ytick', labelsize=10)
+    plt.rc('axes', labelsize=10)
+    plt.rc('figure', facecolor='white')
+
+    ncol=4; nrow=3
+    #f, ax = plt.subplots(nrow, ncol, sharex='all', figsize=[4*ncol,3*nrow])
+    f=plt.figure(figsize=[5*nrow,2*ncol])
+    ax=np.empty((nrow, ncol), dtype='object')
+    gs=GridSpec(nrow, ncol) 
+    for i in range(nrow):
+        for j in range(ncol-1):
+            ax[i,j] = f.add_subplot(gs[i,j], sharex=ax[0,0])
+    ax[0,ncol-1] = f.add_subplot(gs[0:2,ncol-1])
+    ax[1,ncol-1] = []
+    ax[2,ncol-1] = f.add_subplot(gs[2,ncol-1], sharex=ax[0,0])    
+    
+    f.suptitle('Shot #'+str(shot), fontsize=20)
+    for i in range(nrow):
+        for j in range(ncol):
+            ind=i*nrow+j
+            if len(expdata.keys())<=ind:
+                break
+
+            data=expdata[ind]
+            if j==ncol-1:
+                if i==0:
+                    ax[i,j].plot(R,z, 'k');
+                    ax[i,j].scatter(R0, z0, color='k' )
+                    ax[i,j].plot(rw, zw, 'k', lw=2.3)
+                    ax[i,j].plot(np.linspace(min(rw), max(rw), len(rw)), np.zeros(len(rw)), 'k--', lw=2.3);
+                    ax[i,j].set_xlabel(r'R [m]'); ax[i,j].set_ylabel(r'z [m]')
+                    ax[i,j].axis('equal')
+                    continue
+                elif i==1:
+                    continue
+                elif i==2:
+                    ax[i,j].pcolormesh(t_mhd[0]+data['xbins'], data['ybins']*1e-3, np.log10(data['values']), cmap=my_cmap)
+                    ax[i,j].set_ylabel(r'f [kHz]')
+                    continue
+
+            for el in range(data['nq']):
+                ax[i,j].plot(data['x'][el], data['y'][el], col[el], lw=1.5, label=data['lab'][el])
+            if ind==7: #plot 0 position with raxis and zaxis
+                ax[i,j].plot(data['x'][0], np.zeros(len(data['x'][0])), 'k--')
+            if ind==8: #plot q=1
+                ax[i,j].plot(data['x'][0], np.ones(len(data['x'][0])), 'k--')
+            ax[i,j].set_ylabel(data['ylab'])
+            ax[i,j].grid('on')
 
 
+            if 'ylim' in data.keys():
+                ax[i,j].set_ylim(data['ylim'])
 
-# plot
-plt.rc('xtick', labelsize=10)
-plt.rc('ytick', labelsize=10)
-plt.rc('axes', labelsize=10)
-plt.rc('figure', facecolor='white')
+            if data['nq']>1:
+                ax[i,j].legend(loc='best')
 
-ncol=3; nrow=3
-f, ax = plt.subplots(nrow, ncol, sharex='all', figsize=[4*ncol,3*nrow])
-f.suptitle('Shot #'+str(shot), fontsize=20)
-for i in range(ncol):
-    for j in range(nrow):
-        ind=i*nrow+j
-        if len(expdata.keys())<=ind:
-            break
+    plt.grid('on')
 
-        data=expdata[ind]
-        for el in range(data['nq']):
-            ax[i,j].plot(data['x'][el], data['y'][el], col[el], lw=1.5, label=data['lab'][el])
-        if ind==7: #plot 0 position with raxis and zaxis
-            ax[i,j].plot(data['x'][0], np.zeros(len(data['x'][0])), 'k--')
-        if ind==8: #plot q=1
-            ax[i,j].plot(data['x'][0], np.ones(len(data['x'][0])), 'k--')
-        ax[i,j].set_ylabel(data['ylab'])
-        ax[i,j].grid('on')
-        if 'ylim' in data.keys():
-            ax[i,j].set_ylim(data['ylim'])
-            
-        if data['nq']>1:
-            ax[i,j].legend(loc='best')
+    ax[0,0].set_xlim([0., 2.5])
+    for j in range(ncol):
+        ax[nrow-1,j].set_xlabel(r't (s)');
 
-            
-ax[0,0].set_xlim([0., 2.5])
-for j in range(ncol):
-    ax[nrow-1,j].set_xlabel(r't (s)');
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
 
-plt.grid('on')
-plt.tight_layout()
-plt.subplots_adjust(top=0.9)
 plt.show()

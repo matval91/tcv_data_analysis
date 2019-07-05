@@ -1,3 +1,6 @@
+#!/usr/bin/env python2.7
+
+
 # routine to get values from a shot and plot them
 import MDSplus as mds
 import numpy as np
@@ -40,13 +43,13 @@ polflux_n_th = np.copy(polflux_th)
 rho_th = np.copy(polflux_th)
 #finding rhopol
 for i, el in enumerate(polflux_time):
-    polflux_n_th[:, i] = (polflux_th[:,i]-min(polflux_th[:,i]))/(max(polflux_th[:,i])-min(polflux_th[:,i]))
+    polflux_n_th[:, i] = (polflux_th[:,i]-max(polflux_th[:,i]))/(min(polflux_th[:,i])-max(polflux_th[:,i]))
     rho_th[:,i] = np.sqrt(polflux_n_th[:,i])
     
 expdata[1] = {'x': rho_th, \
               'y': ne_raw, \
               't': ne_raw_t, \
-              'err': ne_err,\
+              'err': ne_raw_err,\
               'ylab':r'n$_e$ $10^{20}\,(m^{-3})$'\
               }
 print('Got te '+r'\tcv_shot::top.results.thomson:te')
@@ -78,8 +81,9 @@ for i in range(ncol):
         indraw = np.argmin(expdata[1]['t']-timearr[ind]<0.)
         x = expdata[1]['x'][:, indraw]
         y = expdata[1]['y'][:, indraw]
-        
-        ax[i,j].plot(x,y, 'r', lw=2., label='raw '+str(expdata[1]['t'][indraw]))
+        err = expdata[1]['err'][:, indfit]
+
+        ax[i,j].errorbar(x,y,yerr=err, color='r', lw=2., label='raw '+str(expdata[1]['t'][indraw]))
         ax[i,j].legend(loc='best')
         ax[i,j].grid('on')
   
