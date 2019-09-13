@@ -124,9 +124,9 @@ def plot_tcv_eq(s, f=0):
     axq.plot([0,1], [1,1], 'r--')
     axq.set_ylim([0,10]); axf.set_ylim([0,0.5])
     
-    axc.plot(s['i']['x'], s['i']['y']*1e-3, 'kv', label=r'Data', lw=2., linestyle=ls)
-    axff.plot(s['f']['x'], s['f']['y'], 'rx', label=r'Data', lw=2., linestyle=ls)
-    
+    axc.plot(s['i']['x'], s['i']['y']*1e-3, 'ko', label=r'EXP CUR', lw=2., linestyle=ls)
+    axff.plot(s['f']['x'], s['f']['y'], 'r^', label=r'EXP F', lw=2., linestyle=ls)
+    axff.legend(loc='lower left')
     #========================================================
     # SET TICK LOCATION
     #========================================================
